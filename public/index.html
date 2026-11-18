@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Typed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b; --bg-2: #0e0e10; --bg-3: #141417; --line: #1d1d21; --line-2: #2a2a30;
+    --ink: #ededef; --ink-2: #a1a1aa; --ink-3: #63636b; --accent: #a3b3ff;
+    --str: #7fd4c1; --num: #e3c27d; --bool: #b7a4ef; --bad: #f08a8a; --ok: #86d9a4;
+    --sans: "Geist", ui-sans-serif, system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  ::selection { background: rgba(163,179,255,.25); }
+  .mono, code, textarea, .s { font-family: var(--mono); font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; }
+
+  .app { position: fixed; inset: 0; display: grid; grid-template-columns: 232px minmax(0, 1fr); }
+
+  /* Path */
+  .path { border-right: 1px solid var(--line); background: var(--bg-2); overflow-y: auto; padding: 18px 0 24px; }
+  .brand { padding: 0 18px 18px; font-weight: 600; letter-spacing: -.01em; display: flex; justify-content: space-between; align-items: baseline; }
+  .brand span { font: 500 11px var(--mono); color: var(--ink-3); }
+  .lv { padding: 14px 18px 6px; font-size: 11px; color: var(--ink-3); letter-spacing: .04em; }
+  .u { display: flex; align-items: center; gap: 10px; padding: 6px 18px; color: var(--ink-2); cursor: pointer; font-size: 13.5px; }
+  .u:hover { color: var(--ink); }
+  .u .n { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }
+  .u .bar { position: relative; width: 3px; align-self: stretch; border-radius: 2px; background: var(--line-2); overflow: hidden; }
+  .u .bar i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ink-2); }
+  .u.done .bar i { background: var(--ok); }
+  .u.cur { color: var(--ink); }
+  .u.cur .bar { background: #3a3a44; } .u.cur .bar i { background: var(--accent); }
+  .ms { padding: 2px 0 8px 31px; }
+  .m { display: flex; gap: 8px; align-items: center; padding: 2px 18px 2px 0; font-size: 12.5px; color: var(--ink-3); cursor: pointer; }
+  .m:hover { color: var(--ink-2); }
+  .m i { width: 5px; height: 5px; border-radius: 50%; background: var(--line-2); flex: none; }
+  .m.done i { background: var(--ok); } .m.cur { color: var(--ink); } .m.cur i { background: var(--accent); box-shadow: 0 0 0 3px rgba(163,179,255,.15); }
+
+  /* Main */
+  .main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+  .stage { position: relative; overflow: hidden; }
+  .cards { position: absolute; inset: 0; overflow-y: auto; padding: 24px 380px 32px 24px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 12px; }
+
+  /* Mission card */
+  .mission { position: absolute; top: 20px; right: 20px; width: 340px; background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 12px; padding: 14px 16px 14px; transition: opacity .2s, transform .2s; }
+  .mission.hide { opacity: 0; transform: translateY(-4px); }
+  .mission .meta { font: 11px var(--mono); color: var(--ink-3); display: flex; justify-content: space-between; }
+  .mission h2 { font-size: 15px; font-weight: 600; margin: 8px 0 2px; letter-spacing: -.01em; }
+  .mission p { margin: 0; color: var(--ink-2); font-size: 13px; }
+  .mission pre { margin: 12px 0 0; padding: 9px 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: 12px/1.55 var(--mono); white-space: pre; overflow-x: auto; color: var(--ink); }
+  .mission .keys { margin-top: 10px; font: 11px var(--mono); color: var(--ink-3); display: flex; gap: 12px; }
+  .mission.ok h2::before { content: "✓ "; color: var(--ok); }
+  .mission.ok { border-color: rgba(134,217,164,.35); }
+
+  /* File view */
+  .file { position: absolute; inset: 0; overflow: auto; padding: 22px 380px 40px 0; font: 13.5px/24px var(--mono); font-variant-ligatures: none; }
+  .fname { padding: 0 0 10px 64px; font-size: 11.5px; color: var(--ink-3); }
+  .ln { display: flex; align-items: center; min-height: 24px; white-space: pre; }
+  .ln .no { width: 48px; flex: none; text-align: right; padding-right: 16px; color: #3a3a42; user-select: none; }
+  .ln code { flex: none; color: var(--ink); }
+  .ln.pv { background: rgba(163,179,255,.045); }
+  .ln.pv .no { color: var(--accent); }
+  .ln.pv.err { background: rgba(240,138,138,.05); }
+  .ln.pv.err .no { color: var(--bad); }
+  .ln.new { animation: flash .6s ease-out; }
+  @keyframes flash { from { background: rgba(163,179,255,.12); } }
+  .hs { display: flex; gap: 8px; margin-left: 28px; flex: none; }
+  .hl-wrap .hs { margin-left: 0; flex-wrap: wrap; white-space: normal; padding: 1px 0 3px; }
+  .hl-wrap .h { white-space: normal; }
+  .h { font-size: 12px; line-height: 20px; padding: 0 7px; border-radius: 4px; background: #121215; color: var(--ink-3); }
+  .h.narrow, .h.infer { color: var(--accent); background: rgba(163,179,255,.08); }
+  .h.res { color: var(--ok); background: rgba(134,217,164,.08); }
+  .h i { font-style: normal; opacity: .6; }
+  .sub { display: flex; padding-left: 64px; font-size: 12px; line-height: 22px; color: var(--ink-3); white-space: pre; }
+  .sub b { font-weight: 400; color: var(--ink-2); }
+  .sub span { color: var(--ink-3); padding: 0 8px; }
+  .errbox { margin: 6px 0 4px 64px; padding: 8px 12px; border-left: 2px solid var(--bad); background: rgba(240,138,138,.05); font: 12.5px/1.6 var(--sans); color: var(--bad); max-width: 620px; white-space: normal; }
+  .errbox .path { font: 12px/1.6 var(--mono); color: var(--ink-2); margin-top: 2px; }
+  .errbox .path b { font-weight: 400; color: var(--ink); }
+  .errbox .path .x { color: var(--bad); }
+  .empty-line { color: #34343b; }
+
+  /* Terminal */
+  .term { border-top: 1px solid var(--line); background: var(--bg-2); display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; height: 36vh; min-height: 220px; }
+  .hist { overflow-y: auto; padding: 12px 20px 4px; font: 12.5px/1.65 var(--mono); }
+  .h-in { white-space: pre; color: var(--ink); position: relative; padding-left: 14px; }
+  .h-in::before { content: "›"; position: absolute; left: 0; color: var(--ink-3); }
+  .h-o { color: var(--ink-3); padding-left: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; white-space: pre-wrap; }
+  .h-o .s { font-size: 11.5px; }
+  .h-o.err { color: var(--bad); } .h-o.log { color: var(--ink-2); }
+  .h-o.div { padding: 10px 0 2px; color: var(--ink-3); }
+  .diag { display: none; padding: 6px 20px; font-size: 12.5px; color: var(--bad); border-top: 1px solid var(--line); }
+  .diag.show { display: block; }
+  .prompt { display: flex; gap: 10px; align-items: flex-start; padding: 12px 20px; border-top: 1px solid var(--line); }
+  .ps { font: 500 13.5px/22px var(--mono); color: var(--accent); }
+  .field { position: relative; flex: 1; min-width: 0; }
+  .mirror, #input { font: 13.5px/22px var(--mono); margin: 0; padding: 0; border: 0; white-space: pre; tab-size: 2; letter-spacing: 0; }
+  .mirror { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--ink); }
+  #input { display: block; width: 100%; resize: none; background: transparent; color: transparent; caret-color: var(--ink); outline: none; overflow: hidden; height: 22px; }
+  .sug { color: #3d3d45; }
+  .kw { color: #c4a7e7; } .st { color: #a6d9a0; } .nu { color: #e8b382; } .ty { color: #e6cf8a; } .id { color: var(--ink); } .pu { color: #8a93b2; } .cm { color: var(--ink-3); }
+  .sq { text-decoration: underline wavy var(--bad); text-underline-offset: 4px; text-decoration-skip-ink: none; }
+  .foot { display: flex; gap: 16px; padding: 7px 20px; border-top: 1px solid var(--line); font: 11px var(--mono); color: var(--ink-3); }
+  .foot .r { margin-left: auto; display: flex; gap: 16px; }
+
+  /* Cheat sheet */
+  .sheet-btn { font: 500 12px var(--sans); color: var(--ink-2); background: none; border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 8px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .sheet-btn:hover { color: var(--ink); border-color: #3a3a42; }
+  .sheet-btn b { font: 500 11px var(--mono); color: var(--ink-3); }
+  .sheet-btn.bump b { color: var(--ok); }
+  .sheet { position: absolute; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--bg-2); border-left: 1px solid var(--line-2); z-index: 5; display: grid; grid-template-rows: auto auto minmax(0, 1fr); transform: translateX(100%); transition: transform .22s ease; box-shadow: -24px 0 48px -24px rgba(0,0,0,.6); }
+  .sheet.open { transform: none; }
+  .sh-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; }
+  .sh-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
+  .sh-head span { font: 11px var(--mono); color: var(--ink-3); }
+  .sh-head .sp { flex: 1; }
+  .sh-head button { background: none; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 6px; font: 12px var(--sans); padding: 3px 9px; cursor: pointer; }
+  .sh-head button:hover { color: var(--ink); }
+  .sh-search { margin: 0 18px 10px; padding: 7px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: 13px var(--sans); outline: none; }
+  .sh-search:focus { border-color: var(--line-2); }
+  .sh-body { overflow-y: auto; padding: 0 18px 24px; }
+  .sh-lv { font-size: 11px; color: var(--ink-3); letter-spacing: .04em; padding: 16px 0 4px; }
+  .sh-u { font-size: 13px; font-weight: 600; padding: 8px 0 6px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .sh-e { padding: 8px 0 10px; }
+  .sh-t { font-size: 12.5px; color: var(--ink-2); display: flex; gap: 8px; align-items: baseline; }
+  .sh-t em { font-style: normal; font: 10.5px var(--mono); color: var(--bad); border: 1px solid rgba(240,138,138,.3); border-radius: 4px; padding: 0 5px; }
+  .sh-code { margin: 6px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; font: 12px/1.55 var(--mono); white-space: pre; overflow-x: auto; cursor: pointer; }
+  .sh-code:hover { border-color: var(--line-2); }
+  .sh-r { margin-top: 5px; font: 11.5px/1.5 var(--mono); color: var(--ink-3); }
+  .sh-r.bad { font-family: var(--sans); font-size: 12.5px; color: var(--bad); }
+  .sh-d { margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
+  .sh-empty { color: var(--ink-3); font-size: 13px; padding: 24px 0; }
+  mark { background: rgba(163,179,255,.22); color: inherit; border-radius: 2px; }
+
+  /* Modes + build */
+  .modes { display: flex; gap: 2px; margin: 0 14px 6px; padding: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .modes button { flex: 1; background: none; border: 0; border-radius: 6px; color: var(--ink-3); font: 500 12.5px var(--sans); padding: 5px 0; cursor: pointer; }
+  .modes button.on { background: var(--bg-3); color: var(--ink); }
+  .proj { padding: 10px 18px 2px; display: flex; align-items: baseline; gap: 8px; }
+  .proj b { font-weight: 600; font-size: 13.5px; } .proj button { margin-left: auto; background: none; border: 0; color: var(--ink-3); font: 12px var(--sans); cursor: pointer; padding: 0; }
+  .proj button:hover { color: var(--ink); }
+  .bp { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--bg); z-index: 3; }
+  .bp[hidden] { display: none; }
+  .bp-in { width: min(520px, 100%); }
+  .bp h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -.015em; }
+  .bp p { margin: 0 0 18px; color: var(--ink-2); font-size: 13.5px; line-height: 1.55; }
+  .bp form { display: flex; gap: 8px; }
+  .bp input { flex: 1; padding: 9px 12px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink); font: 14px var(--sans); outline: none; }
+  .bp input:focus { border-color: #3c3c46; }
+  .btn { background: var(--ink); color: var(--bg); border: 0; border-radius: 8px; padding: 0 14px; font: 500 13.5px var(--sans); cursor: pointer; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.ghost { background: none; color: var(--ink-2); border: 1px solid var(--line-2); }
+  .link { background: none; border: 0; padding: 0; margin-top: 12px; color: var(--ink-3); font: 13px var(--sans); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+  .link:hover { color: var(--ink-2); }
+  .bp-status { margin-top: 18px; font: 12.5px/1.6 var(--mono); color: var(--ink-2); min-height: 20px; display: flex; align-items: center; gap: 12px; }
+  .bp-status.err { color: var(--bad); font-family: var(--sans); }
+  .bp-status .spin { width: 12px; height: 12px; border: 1.5px solid var(--line-2); border-top-color: var(--ink-2); border-radius: 50%; animation: rot .8s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .mission .acts { display: flex; gap: 8px; margin-top: 12px; }
+  .mission .acts .btn { padding: 7px 12px; }
+  .mission .note { margin-top: 8px; font-size: 12px; color: var(--ink-3); }
+
+  .boot { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); color: var(--ink-3); font: 12px var(--mono); z-index: 9; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: minmax(0, 1fr); } .path { display: none; }
+    .cards { padding: 190px 16px 20px; } .mission { left: 16px; right: 16px; width: auto; top: 16px; }
+    .foot .r span:not(:last-child) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="boot" id="boot">loading compiler…</div>
+<div class="app">
+  <nav class="path" id="path"></nav>
+  <div class="main" style="position:relative">
+    <aside class="sheet" id="sheet" aria-label="Cheat sheet">
+      <div class="sh-head"><h3>Cheat sheet</h3><span id="shCount"></span><span class="sp"></span><button id="shCopy">Copy as Markdown</button><button id="shClose" aria-label="Close">Esc</button></div>
+      <input class="sh-search" id="shSearch" placeholder="Search" spellcheck="false">
+      <div class="sh-body" id="shBody"></div>
+    </aside>
+    <section class="stage" id="stage">
+      <div class="file" id="file"></div>
+      <div class="bp" id="bp" hidden><div class="bp-in">
+        <h2>Build a project</h2>
+        <p>Describe something you want to make. Claude plans it across all 17 units, the compiler checks every step, and you finish with a project you can download and run.</p>
+        <form id="bpForm"><input id="bpIdea" maxlength="160" placeholder="A recipe manager with shopping lists" autocomplete="off"><button class="btn" id="bpGo">Plan it</button></form>
+        <button class="link" id="bpExample">Or start the example: a habit tracker</button>
+        <div class="bp-status" id="bpStatus"></div>
+      </div></div>
+      <div class="mission hide" id="mission"></div>
+    </section>
+    <section class="term">
+      <div class="hist" id="hist"></div>
+      <div class="diag" id="diag"></div>
+      <div class="prompt"><span class="ps">›</span><div class="field"><div class="mirror" id="mirror"></div><textarea id="input" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="TypeScript input"></textarea></div></div>
+      <div class="foot"><span id="ver"></span><span class="r"><span>⇥ insert</span><span>↵ run</span><span>⇧↵ new line</span><span>/sheet</span><span>/help</span></span></div>
+    </section>
+  </div>
+</div>
+
+<script src="libs.js"></script>
+<script src="missions.js"></script>
+<script src="sheet.js"></script>
+<script src="build.js"></script>
+<script src="example.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="engine.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/typescript@5.4.5/lib/typescript.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const trunc = (s, n) => { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  function fmt(v, d = 0) {
+    if (v === null) return "null";
+    if (v === undefined || (v && v.$undef)) return "undefined";
+    if (typeof v === "string") return JSON.stringify(v);
+    if (typeof v !== "object") return String(v);
+    if (v.$fn !== undefined) return "ƒ " + (v.$fn || "anonymous");
+    if (v.$promise) return "Promise { … }";
+    if (d > 2) return "…";
+    if (v.$arr) return "[" + v.$arr.map((x) => fmt(x, d + 1)).join(", ") + "]";
+    if (v.$obj) { const body = Object.entries(v.$obj).map(([k, x]) => k + ": " + fmt(x, d + 1)).join(", "); return (v.$cls ? v.$cls + " " : "") + "{ " + body + (body ? " }" : "}"); }
+    return String(v);
+  }
+  let MISSIONS = window.MISSIONS, UNITS = window.UNITS, SHEET = window.SHEET || {};
+  const PATH = window.PATH;
+  let project = null;
+  if (!window.ts) { $("boot").textContent = "Couldn't load the TypeScript compiler. Reload to try again."; return; }
+
+  const raw = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+  let prefix = "typed3:";
+  const store = { get: (k, d) => raw.get(prefix + k, d), set: (k, v) => raw.set(prefix + k, v) };
+  const S = { mode: raw.get("typed3:mode", "path"), recall: [], ri: 0, diags: [], busy: false };
+  function loadTrack() {
+    prefix = S.mode === "build" ? "typed3b:" : "typed3:";
+    Object.assign(S, {
+      mi: store.get("mi", 0), done: new Set(store.get("done", [])), unit: store.get("unit", -1), lines: store.get("lines", []),
+      records: store.get("records", []), vars: store.get("vars", {}), hist: store.get("hist", []), logCount: store.get("logCount", 0)
+    });
+    if (S.mode === "build") {
+      project = store.get("project", null);
+      MISSIONS = project ? project.missions : []; UNITS = project ? project.units : []; SHEET = project ? project.sheet : {};
+    } else {
+      MISSIONS = window.MISSIONS; UNITS = window.UNITS; SHEET = window.SHEET || {};
+    }
+  }
+  loadTrack();
+  function save() {
+    ["mi", "unit", "lines", "records", "vars", "logCount"].forEach((k) => store.set(k, S[k]));
+    store.set("done", [...S.done]); store.set("hist", S.hist.slice(-300));
+  }
+  const mission = () => MISSIONS[S.mi];
+
+  // ── Path sidebar
+  function renderPath() {
+    let h = `<div class="brand">Typed<button class="sheet-btn${S.bump ? " bump" : ""}" id="sheetBtn" title="Cheat sheet (/sheet)">Sheet <b>${S.done.size}</b></button></div>`;
+    h += `<div class="modes"><button data-mode="path" class="${S.mode === "path" ? "on" : ""}">Path</button><button data-mode="build" class="${S.mode === "build" ? "on" : ""}">Build</button></div>`;
+    if (S.mode === "build" && project) h += `<div class="proj"><b>${esc(project.name)}</b><button id="newProj">New</button></div>`;
+    const cur = mission() ? mission().unit : -1;
+    PATH.forEach((lv, li) => {
+      if (!UNITS.some((u) => u.li === li)) return;
+      h += `<div class="lv">${esc(lv.level)}</div>`;
+      UNITS.forEach((u, ui) => {
+        if (u.li !== li) return;
+        const n = MISSIONS.filter((m) => m.unit === ui && S.done.has(MISSIONS.indexOf(m))).length;
+        h += `<div class="u${ui === cur ? " cur" : ""}${n === u.count ? " done" : ""}" data-u="${ui}"><span class="bar"><i style="height:${(100 * n) / u.count}%"></i></span>${esc(u.name)}<span class="n">${n}/${u.count}</span></div>`;
+        if (ui === cur) {
+          h += `<div class="ms">` + MISSIONS.map((m, i) => [m, i]).filter(([m]) => m.unit === ui)
+            .map(([m, i]) => `<div class="m${S.done.has(i) ? " done" : ""}${i === S.mi ? " cur" : ""}" data-m="${i}"><i></i>${esc(m.t)}</div>`).join("") + `</div>`;
+        }
+      });
+    });
+    $("path").innerHTML = h;
+    $("sheetBtn").onclick = toggleSheet;
+    $("path").querySelectorAll("[data-mode]").forEach((el) => (el.onclick = () => switchMode(el.dataset.mode)));
+    if ($("newProj")) $("newProj").onclick = () => { $("bp").hidden = false; $("mission").classList.add("hide"); $("bpIdea").focus(); };
+    $("path").querySelectorAll("[data-u]").forEach((el) => (el.onclick = () => goTo(UNITS[+el.dataset.u].start)));
+    $("path").querySelectorAll("[data-m]").forEach((el) => (el.onclick = () => goTo(+el.dataset.m)));
+  }
+
+  // ── Stage: the unit's file, with what the compiler knows written beside each line
+  function renderStage(c, opts = {}) {
+    const v = input.value;
+    const previewing = !!(v.trim() && !v.trim().startsWith("/"));
+    if (!c) c = Engine.compile(S.lines, previewing ? v : "");
+    const text = c.text;
+    const L = text.split("\n");
+    const curLine = c.sf.getLineAndCharacterOfPosition(c.curStart).line;
+    const starts = c.sf.getLineStarts();
+    const H = Engine.hints(c);
+    const ds = c.diags.filter((d) => d.inCurrent && (opts.submitted || !d.syntax));
+    const tr = opts.tr || (ds.length ? Engine.translate(ds.find((d) => !d.syntax) || ds[0], c) : null);
+    const lastLine = previewing ? L.length - 1 : curLine - 1;
+    const u = mission() ? UNITS[mission().unit] : null;
+    const fname = S.mode === "build" ? "index.ts" : u ? u.name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/-+$/, "") + ".ts" : "playground.ts";
+    let h = `<div class="fname">${esc(fname)}</div>`;
+    if (lastLine < 0) h += `<div class="ln"><span class="no">1</span><code class="empty-line">// type below</code></div>`;
+    for (let i = 0; i <= lastLine; i++) {
+      const lineText = L[i];
+      const base = starts[i];
+      const marks = ds.map((d) => [d.start - base, d.start - base + Math.max(1, d.length)]).filter(([a, b]) => b > 0 && a < lineText.length);
+      let pos = 0;
+      const code = Engine.highlight(lineText).map(([t, cl]) => {
+        const s0 = pos, e0 = (pos += t.length);
+        return `<span class="${cl}${marks.some(([a, b]) => s0 < b && e0 > a) ? " sq" : ""}">${esc(t)}</span>`;
+      }).join("");
+      const pv = previewing && i >= curLine;
+      const hs = H.filter((x) => x.line === i && x.kind !== "steps").map((x) => hintHtml(x)).join("");
+      const isNew = !pv && opts.flashFrom !== undefined && i >= opts.flashFrom;
+      const hintChars = H.filter((x) => x.line === i && x.kind !== "steps").reduce((n, x) => n + x.text.length + 6, 0);
+      const wrap = hs && lineText.length + hintChars > 78;
+      h += `<div class="ln${pv ? " pv" + (tr ? " err" : "") : ""}${isNew ? " new" : ""}"><span class="no">${i + 1}</span><code>${code || " "}</code>${hs && !wrap ? `<span class="hs">${hs}</span>` : ""}</div>`;
+      if (wrap) h += `<div class="ln hl-wrap${pv ? " pv" + (tr ? " err" : "") : ""}"><span class="no"></span><span class="hs">${hs}</span></div>`;
+      H.filter((x) => x.line === i && x.kind === "steps").forEach((x) => x.steps.forEach((st) => {
+        h += `<div class="sub"><b>${esc(st.from)}</b><span>→</span>${esc(st.to)}</div>`;
+      }));
+    }
+    if (tr && (previewing || opts.submitted)) {
+      const p = tr.path;
+      h += `<div class="errbox">${esc(tr.body)}${p ? `<div class="path"><b>${esc(p.path)}</b>  ${p.missing ? '<span class="x">missing</span>' : `${esc(p.from)} <span class="x">≠</span> ${esc(p.to)}`}</div>` : ""}</div>`;
+    }
+    $("file").innerHTML = h;
+    if (previewing || opts.flashFrom !== undefined) $("file").scrollTop = 1e9;
+    return tr;
+  }
+  function hintHtml(x) {
+    if (x.kind === "type") {
+      const r = resultAt(x.line);
+      return (r !== undefined ? `<span class="h res">→ ${esc(trunc(fmt(r), 60))}</span>` : "") + `<span class="h">${esc(trunc(x.text, 70))}</span>`;
+    }
+    const note = x.note ? ` <i>${esc(x.note)}</i>` : "";
+    return `<span class="h ${x.kind}">${esc(trunc(x.text, 90))}${note}</span>`;
+  }
+  function resultAt(line) {
+    const r = S.records.find((r) => line >= r.line0 && line < r.line0 + r.n);
+    return r && r.result !== undefined && !(r.result && r.result.$undef) ? r.result : undefined;
+  }
+
+  // ── Terminal
+  const hl = (code) => Engine.highlight(code).map(([t, c]) => (c ? `<span class="${c}">${esc(t)}</span>` : esc(t))).join("");
+  function out(item) { S.hist.push(item); drawItem(item); $("hist").scrollTop = 1e9; }
+  function drawItem(it) {
+    const d = document.createElement("div");
+    if (it.t === "in") { d.className = "h-in"; d.innerHTML = hl(it.code); }
+    else { d.className = "h-o " + it.t; d.innerHTML = it.html; }
+    $("hist").appendChild(d);
+  }
+  function renderHist() { $("hist").innerHTML = ""; S.hist.slice(-300).forEach(drawItem); $("hist").scrollTop = 1e9; }
+
+  // ── Input (textarea + highlighted mirror)
+  const input = $("input");
+  function fit() {
+    const v = input.value;
+    const rows = Math.min(12, (v ? v : mission() ? mission().code : "").split("\n").length || 1);
+    input.style.height = rows * 22 + "px";
+    $("mirror").scrollLeft = input.scrollLeft;
+  }
+  function renderMirror() {
+    const v = input.value;
+    let h;
+    if (!v) h = mission() ? `<span class="sug">${esc(mission().code)}</span>` : "";
+    else if (v.startsWith("/")) h = `<span class="kw">${esc(v)}</span>`;
+    else {
+      const marks = S.diags.filter((d) => !d.syntax).map((d) => [d.rel, d.rel + Math.max(1, d.length)]);
+      let pos = 0;
+      h = Engine.highlight(v).map(([t, c]) => {
+        const s = pos, e = (pos += t.length);
+        return `<span class="${c}${marks.some(([a, b]) => s < b && e > a) ? " sq" : ""}">${esc(t)}</span>`;
+      }).join("");
+    }
+    $("mirror").innerHTML = h;
+    $("mirror").style.height = (!v && mission() ? mission().code.split("\n").length : Math.max(1, v.split("\n").length)) * 22 + "px";
+    fit();
+  }
+
+  let timer;
+  function onInput() { renderMirror(); clearTimeout(timer); timer = setTimeout(live, 60); }
+  function live() {
+    const v = input.value;
+    if (!v.trim() || v.startsWith("/")) { S.diags = []; $("diag").className = "diag"; renderStage(); renderMirror(); return; }
+    const c = Engine.compile(S.lines, v);
+    S.diags = c.diags.filter((d) => d.inCurrent).map((d) => ({ ...d, rel: d.start - c.curStart }));
+    renderStage(c);
+    renderMirror();
+  }
+
+  // ── Runtime (sandboxed Worker, no eval)
+  const PRELUDE = `
+    var __logs = [], __last, __varsOut = {}, __NOV = { $nov: 1 };
+    function __try(f) { try { return f(); } catch (e) { return __NOV; } }
+    function __vars(v) { __varsOut = v; }
+    function __ser(v, d) {
+      d = d || 0;
+      if (v === __NOV) return __NOV;
+      if (v === undefined) return { $undef: 1 };
+      if (v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+      if (typeof v === "function") return { $fn: v.name || "" };
+      if (typeof v !== "object") return String(v);
+      if (d > 3) return { $obj: {} };
+      if (Array.isArray(v)) return { $arr: v.slice(0, 20).map(function (x) { return __ser(x, d + 1); }) };
+      if (typeof v.then === "function") return { $obj: {}, $promise: 1 };
+      var o = {}; Object.keys(v).slice(0, 20).forEach(function (k) { o[k] = __ser(v[k], d + 1); });
+      return { $obj: o, $cls: v.constructor && v.constructor !== Object ? v.constructor.name : null };
+    }
+    function __fmt(v) { try { return typeof v === "string" ? v : JSON.stringify(v); } catch (e) { return String(v); } }
+    var console = { log: function () { __logs.push([].map.call(arguments, __fmt).join(" ")); } };
+    console.info = console.warn = console.error = console.log;`;
+  function execute(js) {
+    return new Promise((resolve) => {
+      const src = PRELUDE + `
+        try { (function (exports) {\n${js}\n})({});
+          var vs = {}; Object.keys(__varsOut).forEach(function (k) { vs[k] = __ser(__varsOut[k]); });
+          postMessage({ ok: true, last: __ser(__last), vars: vs, logs: __logs });
+        } catch (e) { postMessage({ ok: false, error: (e && e.message) || String(e), logs: __logs }); }`;
+      let url, w;
+      try { url = URL.createObjectURL(new Blob([src], { type: "text/javascript" })); w = new Worker(url); }
+      catch (e) { resolve({ ok: false, error: e.message, logs: [] }); return; }
+      const end = (r) => { clearTimeout(t); w.terminate(); URL.revokeObjectURL(url); resolve(r); };
+      const t = setTimeout(() => end({ ok: false, error: "Timed out after 2s.", logs: [] }), 2000);
+      w.onmessage = (e) => end(e.data);
+      w.onerror = (e) => { e.preventDefault(); end({ ok: false, error: e.message || "Error", logs: [] }); };
+    });
+  }
+
+  // ── Submit
+  async function submit(code, silent) {
+    const c = Engine.compile(S.lines, code);
+    const cur = c.diags.filter((d) => d.inCurrent);
+    const ents = c.entities.filter((e) => e.current);
+    if (!silent) out({ t: "in", code });
+    if (cur.length) {
+      if (silent) return false;
+      const tr = Engine.translate(cur.find((d) => !d.syntax) || cur[0], c);
+      out({ t: "err", html: esc(tr.body) });
+      renderStage(c, { submitted: true, tr });
+      judge({ on: "error", newEnts: ents, errorCodes: cur.map((d) => d.code) });
+      return false;
+    }
+    const r = await execute(Engine.runnable(c));
+    if (!r.ok) { if (!silent) out({ t: "err", html: "Runtime error: " + esc(r.error) }); return false; }
+    const line0 = S.lines.length ? S.lines.join("\n").split("\n").length : 0;
+    S.lines.push(code);
+    const last = ents[ents.length - 1];
+    const result = last && last.kind === "expr" ? r.last : undefined;
+    S.records.push({ line0, n: code.split("\n").length, result });
+    S.vars = r.vars;
+    if (!silent) {
+      r.logs.slice(S.logCount).forEach((l) => out({ t: "log", html: esc(l) }));
+      if (last && last.kind === "expr" && result && !result.$undef) out({ t: "res", html: "→ " + esc(fmt(result)) });
+    }
+    S.logCount = r.logs.length;
+    S.diags = [];
+    if (!silent) { input.value = ""; renderStage(null, { flashFrom: line0 }); } else renderStage();
+    save();
+    if (!silent) judge({ on: "commit", newEnts: ents, errorCodes: [], result: result && result.$undef ? undefined : result });
+    return true;
+  }
+
+  // ── Missions
+  function judge(ctx) {
+    const m = mission();
+    if (!m) return;
+    if (!window.missionPasses(m, ctx)) {
+      if (ctx.on === "commit") {
+        const why = m.expect.auto ? Build.explain(m, ctx) : "That works, but it isn't what this step asks for.";
+        out({ t: "log", html: `${esc(why)} <span style="color:var(--ink-3)">/undo removes the line.</span>` });
+      }
+      return;
+    }
+    S.done.add(S.mi);
+    S.bump = true;
+    const was = S.mi;
+    S.mi++;
+    save(); renderPath();
+    $("mission").classList.add("ok");
+    if (ctx.on === "error") setTimeout(() => { input.value = ""; S.diags = []; $("diag").className = "diag"; renderMirror(); renderStage(); }, 700);
+    setTimeout(() => {
+      const next = mission();
+      if (next && next.unit !== MISSIONS[was].unit) enterUnit(next.unit);
+      showMission();
+    }, 900);
+  }
+
+  function showMission() {
+    const el = $("mission"), m = mission();
+    el.classList.add("hide");
+    setTimeout(() => {
+      el.classList.remove("ok");
+      if (S.mode === "build" && !project) { el.innerHTML = ""; return; }
+      if (!m && S.mode === "build") {
+        el.innerHTML = `<div class="meta"><span>${esc(project.name)}</span><span>${MISSIONS.length}/${MISSIONS.length}</span></div><h2>Project complete</h2><p>${esc(project.summary)}</p>
+          <div class="acts"><button class="btn" id="dlZip">Download .zip</button><button class="btn ghost" id="cpCode">Copy code</button></div><div class="note" id="dlNote">src/index.ts, package.json, tsconfig.json, README. Run with npm start.</div>`;
+        $("dlZip").onclick = downloadZip; $("cpCode").onclick = copyCode;
+      } else if (!m) {
+        el.innerHTML = `<div class="meta"><span>Complete</span><span>${MISSIONS.length}/${MISSIONS.length}</span></div><h2>Path complete</h2><p>The terminal stays open for anything you want to try. /reset starts over.</p>`;
+      } else {
+        const u = UNITS[m.unit];
+        const where = S.mode === "build" ? `${esc(project.name)} · ${esc(u.name)}` : `${esc(u.level)} · ${esc(u.name)}`;
+        const k = S.mode === "build" ? `${S.mi + 1}/${MISSIONS.length}` : `${m.k + 1}/${u.count}`;
+        el.innerHTML = `<div class="meta"><span>${where}</span><span>${k}</span></div><h2>${esc(m.t)}</h2><p>${esc(m.d)}</p><pre>${hl(m.code)}</pre>`;
+      }
+      el.classList.remove("hide");
+    }, 160);
+    renderPath(); renderMirror(); input.focus();
+  }
+
+  function resetSession() { S.lines = []; S.records = []; S.vars = {}; S.logCount = 0; S.diags = []; renderStage(); }
+  function enterUnit(ui) {
+    if (S.mode !== "build") resetSession();
+    S.unit = ui;
+    out({ t: "div", html: esc(UNITS[ui].level + " · " + UNITS[ui].name) });
+    save();
+  }
+
+  async function goTo(i) {
+    if (i < 0 || i >= MISSIONS.length) return;
+    S.mi = i;
+    const m = MISSIONS[i];
+    if (S.mode === "build") resetSession();
+    enterUnit(m.unit);
+    for (let j = S.mode === "build" ? 0 : UNITS[m.unit].start; j < i; j++) if (!isErr(MISSIONS[j])) await submit(MISSIONS[j].code, true);
+    input.value = ""; save(); showMission();
+  }
+
+  async function undo() {
+    if (!S.lines.length) { out({ t: "log", html: "Nothing to undo." }); return; }
+    const removed = S.lines.pop();
+    S.records.pop();
+    const r = await execute(Engine.runnable(Engine.compile(S.lines, "")));
+    if (r.ok) { S.vars = r.vars; S.logCount = r.logs.length; }
+    out({ t: "log", html: "Removed: " + esc(removed.split("\n")[0]) });
+    save(); renderStage();
+  }
+  const isErr = (m) => !!(m.expect.err || (m.expect.auto && m.expect.auto.err));
+
+  function command(v) {
+    const [name] = v.slice(1).trim().split(/\s+/);
+    out({ t: "in", code: v });
+    switch (name) {
+      case "help": out({ t: "log", html: "/sheet  open the cheat sheet\n/export download the project (Build)\n/undo   remove the last accepted line\n/skip  next mission\n/back  previous mission\n/clear clear the session\n/reset restart the path" }); break;
+      case "sheet": openSheet(); break;
+      case "export": if (S.mode === "build" && project) downloadZip(); else out({ t: "err", html: "Export works in Build mode." }); break;
+      case "skip": goTo(Math.min(S.mi + 1, MISSIONS.length - 1)); break;
+      case "back": goTo(S.mi - 1); break;
+      case "clear": resetSession(); save(); break;
+      case "undo": undo(); break;
+      case "reset": S.done = new Set(); S.hist = []; renderHist(); if (MISSIONS.length) goTo(0); break;
+      default: out({ t: "err", html: "Unknown command. Try /help." });
+    }
+  }
+
+  // ── Cheat sheet: every completed mission becomes a reference entry
+  const IMPERATIVE = /^(Run|Pass|Push|Assign|Read|Leave|Try|Create|Use|Put|Treat|Break|Look|Implement|Feed|Nest|Get|Parse|Emit|Change|Declare two|Start|Make|Freeze|Index|Reach)\b/;
+  function sheetEntries() {
+    return [...S.done].sort((a, b) => a - b).map((i) => ({ i, m: MISSIONS[i], x: SHEET[i] || {} }));
+  }
+  function mark(text, q) {
+    const e = esc(text);
+    if (!q) return e;
+    return e.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark>${m}</mark>`);
+  }
+  function renderSheet() {
+    const q = $("shSearch").value.trim();
+    const all = sheetEntries();
+    const list = q ? all.filter(({ m, x }) => [m.t, m.d, m.code, x.gives, x.why, UNITS[m.unit].name].join(" ").toLowerCase().includes(q.toLowerCase())) : all;
+    $("shCount").textContent = `${all.length} / ${MISSIONS.length}`;
+    if (!all.length) { $("shBody").innerHTML = `<div class="sh-empty">Complete a mission and it lands here.</div>`; return; }
+    if (!list.length) { $("shBody").innerHTML = `<div class="sh-empty">No matches.</div>`; return; }
+    let h = "", lv = null, unit = null;
+    list.forEach(({ i, m, x }) => {
+      const u = UNITS[m.unit];
+      if (u.level !== lv) { lv = u.level; h += `<div class="sh-lv">${esc(lv)}</div>`; }
+      if (m.unit !== unit) { unit = m.unit; h += `<div class="sh-u">${mark(u.name, q)}</div>`; }
+      const err = isErr(m);
+      h += `<div class="sh-e"><div class="sh-t">${mark(m.t, q)}${err ? "<em>error</em>" : ""}</div>` +
+        `<pre class="sh-code" data-i="${i}" title="Insert into the prompt">${q ? mark(m.code, q) : hl(m.code)}</pre>` +
+        (err && x.why ? `<div class="sh-r bad">${mark(x.why, q)}</div>` : x.gives ? `<div class="sh-r">${mark(x.gives, q)}</div>` : "") +
+        (!err && !IMPERATIVE.test(m.d) && !/Shift\+Enter/.test(m.d) ? `<div class="sh-d">${mark(m.d, q)}</div>` : "") + `</div>`;
+    });
+    $("shBody").innerHTML = h;
+    $("shBody").querySelectorAll(".sh-code").forEach((el) => (el.onclick = () => {
+      input.value = MISSIONS[+el.dataset.i].code; closeSheet(); onInput(); input.focus();
+    }));
+  }
+  function openSheet() { S.bump = false; renderPath(); renderSheet(); $("sheet").classList.add("open"); $("shSearch").focus(); }
+  function closeSheet() { $("sheet").classList.remove("open"); input.focus(); }
+  function toggleSheet() { $("sheet").classList.contains("open") ? closeSheet() : openSheet(); }
+  $("shClose").onclick = closeSheet;
+  $("shSearch").addEventListener("input", renderSheet);
+  $("shSearch").addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+  $("shCopy").onclick = async () => {
+    let md = "# TypeScript cheat sheet\n", unit = null;
+    sheetEntries().forEach(({ m, x }) => {
+      if (m.unit !== unit) { unit = m.unit; md += `\n## ${UNITS[unit].level} · ${UNITS[unit].name}\n`; }
+      md += `\n**${m.t}**${isErr(m) ? " (error)" : ""}\n\n\`\`\`ts\n${m.code}\n\`\`\`\n` + (isErr(m) && x.why ? `\n${x.why}\n` : x.gives ? `\n→ \`${x.gives}\`\n` : "");
+    });
+    try { await navigator.clipboard.writeText(md); $("shCopy").textContent = "Copied"; }
+    catch { $("shCopy").textContent = "Copy blocked"; }
+    setTimeout(() => ($("shCopy").textContent = "Copy as Markdown"), 1500);
+  };
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("sheet").classList.contains("open")) closeSheet(); });
+
+  // ── Modes and Build
+  function switchMode(mode) {
+    if (mode === S.mode) return;
+    save();
+    S.mode = mode; raw.set("typed3:mode", mode);
+    loadTrack();
+    closeSheet();
+    renderHist(); renderStage();
+    $("bp").hidden = !(S.mode === "build" && !project);
+    const m = mission();
+    if (m && S.unit !== m.unit) enterUnit(m.unit);
+    showMission();
+    if (!$("bp").hidden) $("bpIdea").focus();
+  }
+
+  let ctl = null;
+  function status(html, cls = "") { $("bpStatus").className = "bp-status " + cls; $("bpStatus").innerHTML = html; }
+  function onStatus(st) {
+    const spin = '<span class="spin"></span>', stop = '<button class="link" id="bpStop" style="margin:0">Stop</button>';
+    if (st.phase === "planning") status(`${spin}Planning${st.steps ? ` · ${st.steps} steps written` : "…"}${stop}`);
+    if (st.phase === "checking") status(`${spin}Compiling ${st.total} steps…`);
+    if (st.phase === "fixing") status(`${spin}Fixing ${st.count} step${st.count > 1 ? "s" : ""} the compiler rejected${st.steps ? ` · ${st.steps} rewritten` : "…"}${stop}`);
+    if ($("bpStop")) $("bpStop").onclick = () => ctl && ctl.abort();
+  }
+  async function getCap(name) {
+    try { return window.claude && window.claude.use ? await window.claude.use(name) : null; } catch { return null; }
+  }
+  // Planner for a self-hosted deployment: POST /api/plan streams Claude's text back
+  async function postPlan(body, { signal, onText } = {}) {
+    let res;
+    try { res = await fetch("api/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal }); }
+    catch (e) { throw e && e.name === "AbortError" ? { code: "cancelled" } : { code: "upstream_error", message: "Couldn't reach the planning server." }; }
+    if (res.status === 429) throw { code: "rate_limited" };
+    if (res.status === 404 || res.status === 503) throw { code: "sampling_disabled" };
+    if (!res.ok || !res.body) throw { code: "upstream_error", message: (await res.text().catch(() => "")) || "The planning server failed." };
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let text = "";
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += dec.decode(value, { stream: true });
+        if (onText) onText({ text });
+      }
+    } catch (e) { throw e && e.name === "AbortError" ? { code: "cancelled" } : { code: "upstream_error", message: "The connection dropped." }; }
+    const errAt = text.indexOf("ERROR:");
+    if (errAt === 0 || text.includes("\nERROR:")) throw { code: "upstream_error", message: text.slice(errAt + 6).trim() };
+    const a = text.indexOf("{"), b = text.lastIndexOf("}");
+    try { return JSON.parse(text.slice(a, b + 1)); } catch { throw { code: "invalid_json" }; }
+  }
+  const apiPlanner = {
+    plan: (idea, o) => postPlan({ idea }, o),
+    repair: (idea, plan, problems, o) => postPlan({ idea, plan, problems }, o)
+  };
+
+  function busyForm(b) { $("bpGo").disabled = b; $("bpIdea").disabled = b; $("bpExample").disabled = b; }
+
+  $("bpForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const idea = $("bpIdea").value.trim();
+    if (!idea) { $("bpIdea").focus(); return; }
+    const sample = await getCap("sample");
+    const planner = sample ? Build.artifactPlanner(sample) : apiPlanner;
+    busyForm(true);
+    ctl = new AbortController();
+    try {
+      const p = await Build.create(idea, { planner, exec: execute, signal: ctl.signal, onStatus });
+      startProject(p);
+    } catch (err) {
+      const code = err && err.code;
+      if (code === "cancelled") status("");
+      else if (code === "not_granted" || code === "sampling_disabled") status("Planning isn't available on this site. The example still works.", "err");
+      else if (code === "rate_limited") status("Too many requests right now. Try again in a minute.", "err");
+      else if (code === "invalid_json") status("The plan came back malformed. Try again.", "err");
+      else status(esc((err && err.message) || "Something went wrong. Try again."), "err");
+    } finally { busyForm(false); ctl = null; }
+  });
+  $("bpExample").onclick = async () => {
+    busyForm(true);
+    onStatus({ phase: "checking", total: window.EXAMPLE_PLAN.steps.length });
+    const v = await Build.verify(Build.normalize(window.EXAMPLE_PLAN), execute);
+    busyForm(false);
+    if (v.problems.length) { status("The example failed to compile.", "err"); return; }
+    startProject({ idea: "Habit tracker", name: window.EXAMPLE_PLAN.name, summary: window.EXAMPLE_PLAN.summary, ...v });
+  };
+
+  function startProject(p) {
+    project = p;
+    Object.assign(S, { mi: 0, done: new Set(), unit: -1, lines: [], records: [], vars: {}, hist: [], logCount: 0 });
+    store.set("project", p);
+    MISSIONS = p.missions; UNITS = p.units; SHEET = p.sheet;
+    save();
+    status("");
+    $("bp").hidden = true;
+    renderHist(); renderStage();
+    out({ t: "log", html: esc(`${p.name}: ${p.missions.length} steps across ${p.units.length} units, all compiled.`) });
+    enterUnit(0);
+    showMission();
+  }
+
+  function projectFile() { return Build.files(project).files["src/index.ts"]; }
+  async function copyCode() {
+    try { await navigator.clipboard.writeText(projectFile()); $("dlNote").textContent = "Copied src/index.ts to the clipboard."; }
+    catch { $("dlNote").textContent = "Copy was blocked by the browser."; }
+  }
+  async function downloadZip() {
+    const note = (t) => { if ($("dlNote")) $("dlNote").textContent = t; else out({ t: "log", html: esc(t) }); };
+    if (!window.JSZip) { note("Downloads aren't available here. Use Copy code instead."); return; }
+    const dl = await getCap("downloads");
+    const { slug, files } = Build.files(project);
+    const zip = new JSZip();
+    Object.entries(files).forEach(([path, body]) => zip.file(`${slug}/${path}`, body));
+    try {
+      const blob = await zip.generateAsync({ type: "blob" });
+      if (dl) await dl.save({ filename: `${slug}.zip`, data: blob });
+      else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = `${slug}.zip`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      }
+      note(`Saved ${slug}.zip`);
+    } catch (err) {
+      const code = err && err.code;
+      note(code === "declined" ? "Download cancelled." : code === "rate_limited" ? "A download prompt is already open." : "Download isn't available here. Use Copy code instead.");
+    }
+  }
+
+  // ── Keys
+  input.addEventListener("input", onInput);
+  input.addEventListener("scroll", () => ($("mirror").scrollLeft = input.scrollLeft));
+  input.addEventListener("keydown", async (e) => {
+    const v = input.value;
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (S.busy || !v.trim()) return;
+      if (v.trim().startsWith("/")) { command(v.trim()); input.value = ""; renderMirror(); return; }
+      S.busy = true; S.recall.push(v); S.ri = S.recall.length;
+      const ok = await submit(v);
+      S.busy = false;
+      if (ok) { input.value = ""; $("diag").className = "diag"; }
+      renderMirror();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      if (!v && mission()) { input.value = mission().code; onInput(); }
+      else document.execCommand("insertText", false, "  ");
+    } else if (e.key === "ArrowUp" && !v.slice(0, input.selectionStart).includes("\n") && S.recall.length) {
+      e.preventDefault(); S.ri = Math.max(0, S.ri - 1); input.value = S.recall[S.ri]; onInput();
+    } else if (e.key === "ArrowDown" && !v.slice(input.selectionEnd).includes("\n") && S.recall.length) {
+      e.preventDefault(); S.ri = Math.min(S.recall.length, S.ri + 1); input.value = S.recall[S.ri] || ""; onInput();
+    } else if (e.key === "Escape") { input.value = ""; onInput(); }
+  });
+  $("stage").addEventListener("click", () => input.focus());
+
+  // ── Boot
+  Engine.compile([], "");
+  $("ver").textContent = "TypeScript " + Engine.version() + " · strict";
+  $("boot").remove();
+  renderHist(); renderStage();
+  $("bp").hidden = !(S.mode === "build" && !project);
+  const m = mission();
+  if (m && S.unit !== m.unit) enterUnit(m.unit);
+  showMission();
+  // A line accepted before a check was fixed still counts: re-check the last one
+  if (m && !isErr(m) && S.lines.length) {
+    const prev = S.lines.slice(0, -1), last = S.lines[S.lines.length - 1];
+    const c = Engine.compile(prev, last);
+    const ents = c.entities.filter((e) => e.current);
+    const rec = S.records[S.records.length - 1];
+    const ctx = { on: "commit", newEnts: ents, errorCodes: [], result: rec && rec.result && !rec.result.$undef ? rec.result : undefined };
+    if (!c.diags.some((d) => d.inCurrent) && window.missionPasses(m, ctx)) judge(ctx);
+  }
+})();
+</script>
+</body>
+</html>
